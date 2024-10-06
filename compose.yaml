@@ -1,0 +1,30 @@
+services:
+  # TodoApp service
+  app:
+    image: niceziberliska/todoapp
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - MongoDbSettings__ConnectionString=mongodb://db:27017
+      - TODO_SERVICE_IMPLEMENTATION=MongoDb
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  # MongoDB service
+  db:
+    image: mongo
+    restart: always
+    volumes:
+      - mongodb-data:/data/db
+
+  # Mongo Express service
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=db
+
+volumes:
+  mongodb-data:

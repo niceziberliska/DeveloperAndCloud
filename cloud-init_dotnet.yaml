@@ -1,0 +1,35 @@
+#!/bin/bash
+# Install .Net Runtime 8.0
+
+# Register Microsoft repository (includes .Net Runtime 8.0 package)
+wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+dpkg -i packages-microsoft-prod.deb
+
+# Install .Net Runtime 8.0
+apt-get update
+apt-get install -y aspnetcore-runtime-8.0
+
+# Create service for the application
+cat <<EOF > /etc/systemd/system/ToDoApp.service
+[Unit]
+Description=ASP.NET Web App running on Ubuntu
+
+[Service]
+WorkingDirectory=/opt/ToDoApp
+ExecStart=/usr/bin/dotnet /opt/ToDoApp/ToDoApp.dll
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=ToDoApp
+User=www-data
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+Environment="ASPNETCORE_URLS=http://*:8080"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start the service
+systemctl enable ToDoApp.service
+systemctl start ToDoApp.service1

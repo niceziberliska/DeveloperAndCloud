@@ -1,0 +1,250 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0", 
+    "parameters": {
+        "adminUsername": {
+            "type": "string",
+            "defaultValue": "azureuser",
+            "metadata": {
+                "description": "Admin username for the virtual machine."
+                
+            }
+          
+        },
+        "sshKeyData": {
+            "type": "string",
+            "metadata": {
+                "description": "SSH public key data."
+            }
+        },
+        "vmName": {
+            "type": "string",
+            "defaultValue": "DemoVM",
+            "metadata": {
+                "description": "Name of the virtual machine."
+            }
+        },
+        "networkInterfaceName": {
+            "type": "string",
+            "defaultValue": "DemoNIC",
+            "metadata": {
+                "description": "Name of the network interface."
+            }
+        },
+        "virtualNetworkName": {
+            "type": "string",
+            "defaultValue": "DemoVirtualNetwork",
+            "metadata": {
+                "description": "Name of the virtual network."
+            }
+        },
+        "subnetName": {
+            "type": "string",
+            "defaultValue": "DemoSubnet",
+            "metadata": {
+                "description": "Name of the subnet."
+            }
+        },
+        "publicIpAddressName": {
+            "type": "string",
+            "defaultValue": "DemoPublicIP",
+            "metadata": {
+                "description": "Name of the public IP address"
+            }
+        },
+        "networkSecuriyGroupName": {
+            "type": "string",
+            "defaultValue": "DemoNSG",
+            "metadata": {
+                "description": "Name of the network security group."
+            
+            }
+
+        },
+        "customData": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Custom data (cloud-init script) to configure the VM at boot time."
+            }
+        }
+    }, 
+    "functions": [],
+    "variables": {},
+    "resources": [
+        //Virtual Network and Subnet
+        {
+            "name": "[parameters('virtualNetworkName')]",
+            "type": "Microsoft.Network/virtualnetworks",
+            "apiVersion": "2023-04-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('subnetName')]",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24"
+                        }
+                    }
+                ]
+            }
+
+     },
+        //Public IP
+        {
+            "name": "[parameters('publicIpAddressName')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2023-04-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        // Network Security Group
+        {
+            "name": "[parameters('networkSecuriyGroupName')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+        "apiVersion": "2023-04-01",
+        "location": "[resourceGroup().location]",
+        "properties": {
+            "securityRules": [
+                {
+                    "name": "SSH",
+                    "properties": {
+                        "access": "Allow",
+                        "direction": "Inbound",
+                        "priority": 100,
+                        "protocol": "Tcp",
+                        "sourcePortRange": "*",
+                        "sourceAddressPrefix": "*",
+                        "destinationPortRange": "22",
+                        "destinationAddressPrefix": "*"
+                    }
+                    },
+                    {
+                    "name": "HTTP",
+                    "properties": {
+                        "access": "Allow",
+                        "direction": "Inbound",
+                        "priority": 101,
+                        "protocol": "Tcp",
+                        "sourcePortRange": "*",
+                        "sourceAddressPrefix": "*",
+                        "destinationPortRange": "80",
+                        "destinationAddressPrefix": "*"
+                    }
+                }
+             
+
+            ]
+        }
+
+
+    },
+    //Network Interface Card
+    {
+        "name": "[parameters('networkInterfaceName')]",
+        "type": "Microsoft.Network/networkInterfaces",
+        "apiVersion": "2023-04-01",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+            "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpAddressName'))]",
+            "[resourceId('Microsoft.Network/virtualnetworks', parameters('virtualNetworkName'))]",
+            "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecuriyGroupName'))]"
+                ],
+                "properties": {
+                    "ipConfigurations": [
+                        {
+                            "name": "DemoIPConfig",
+                            "properties": {
+                                "privateIPAllocationMethod": "Dynamic",
+                                "publicIPAddress": {
+                                        "id":"[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpAddressName'))]"
+
+
+                                },
+                                "subnet": {
+                                    "id":
+"[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('subnetName'))]"  
+
+                                }
+
+                            
+                            }
+
+                        }
+                      
+                    ],
+                    "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecuriyGroupName'))]"
+                    }
+                }
+                    
+            
+
+        
+        },
+        //Virtual Machine
+        {
+            "name": "[parameters('vmName')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2021-04-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaceName'))]"
+
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_B1s"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('vmName')]",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": true,
+                        "ssh": {
+                            "publicKeys": [
+                                {
+                                    "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                                    "keyData": "[parameters('sshKeyData')]"
+                                }
+                            ]
+                        }
+                    },
+                    "customData": "[base64(parameters('customData'))]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "0001-com-ubuntu-server-jammy",
+                        "sku": "22_04-lts-gen2",
+                        "version": "latest"
+
+                    },
+                    "osDisk": {
+                        "name": "[concat(parameters('vmName'), '-OSDisk')]",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaceName'))]"
+                        }
+                    ]
+                }
+            }
+        }
+
+        
+           
+        
+],
+    "outputs": {}
+}

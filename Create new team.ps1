@@ -1,0 +1,1 @@
+﻿New-Team -DisplayName "TestTeam1" -Description "TheFirstTestTeamForTraning"

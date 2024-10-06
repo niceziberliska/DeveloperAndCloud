@@ -1,0 +1,3 @@
+#Delete the partent directory and everything inside the parent directory and all
+#the sundirectories, including all files
+rm -rf ToDoApp/#

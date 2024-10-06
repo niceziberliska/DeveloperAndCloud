@@ -1,0 +1,72 @@
+
+#!/bin/bash
+
+Location=northeurope
+# Resource group name varible
+RgName=DemoDockerRG02
+# VM Name Varible 
+VMName=TestDockerDemoVM02
+# SSH key name Varible
+SSHKeyName=${VMName}_ssh_key
+NICName=${VMName}_NIC
+PublicIPName=${VMName}_PublicIP
+NSGName=${VMName}_NSG
+VNetName=${RgName}_VNet
+Subnet_Name=${RgName}_subnet
+
+#Create an new resource groupe
+az group create --name $RgName --location $Location
+
+#
+ssh-keygen -t rsa -b 2048 -f ~/.ssh/$SSHKeyName -N ""
+
+
+az network vnet create --resource-group $RgName \
+    --name $VNetName \
+    --subnet-name $Subnet_Name \
+    --address-prefix 10.0.0.0/16 \
+    --subnet-prefix 10.0.0.0/24
+
+az network public-ip create --resource-group $RgName \
+    --name $PublicIPName
+
+az network nsg create --resource-group $RgName \
+    --name $NSGName
+
+az network nic create --resource-group $RgName \
+    --name $NICName \
+    --vnet-name $VNetName \
+    --subnet $Subnet_Name \
+    --network-security-group $NSGName \
+    --public-ip-address $PublicIPName
+
+#
+az vm create --resource-group $RgName \
+    --name $VMName \
+    --image Ubuntu2204 \
+    --admin-username azureuser \
+    --ssh-key-value ~/.ssh/$SSHKeyName.pub \
+    --size Standard_B1s \
+    --nics $NICName \
+    --custom-data @cloud-init_docker.yaml
+
+# Change the values or the value of the ports varible to match those ports or the port
+# you need to open upp for traffic. 
+ports=(22 80 8080 8081)  # Array of ports to open
+# The value of the priority varible is incremented by one after 
+# each iterating of a port number in for lopp, and each port being 
+# opened up for traffic by az vm open-port command. 
+# Initialize a variable to track the priority number
+priority=200
+
+# Loop through the ports array and open each port
+for port in "${ports[@]}"; do
+    az vm open-port --resource-group $RgName --name $VMName --port "$port" --priority "$priority" 
+    priority=$((priority + 1)) # Increment the priority for the next interation
+done
+
+public_ip=$(az vm show --resource-group $RgName --name $VMName --show-details --query "publicIps" --output tsv)
+echo $public_ip
+
+echo "You have created an Ubuntu2204 VM with the name $VMName in Azure"
+

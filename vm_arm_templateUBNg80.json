@@ -1,0 +1,222 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0", 
+    "parameters": {
+        "adminUsername": {
+            "type": "string",
+            "defaultValue": "azureuser",
+            "metadata": {
+                "description": "Admin username for the virtual machine."
+                
+            }
+          
+        },
+        "sshKeyData": {
+            "type": "string",
+            "metadata": {
+                "description": "SSH public key data."
+            }
+        }
+    }, 
+    "functions": [],
+    "variables": {},
+    "resources": [
+        //Virtual Network and Subnet
+        {
+            "name": "DemoVirtualNetwork",
+            "type": "Microsoft.Network/virtualnetworks",
+            "apiVersion": "2023-04-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "DemoSubnet",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24"
+                        }
+                    }
+                ]
+            }
+
+        },
+        //Public IP
+        {
+            "name": "DemoPublicIP",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2023-04-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        // Network Security Group
+        {
+            "name": "DemoNSG",
+            "type": 
+"Microsoft.Network/networkSecurityGroups",
+        "apiVersion": "2023-04-01",
+        "location": "[resourceGroup().location]",
+        "properties": {
+            "securityRules": [
+                {
+                    "name": "SSH",
+                    "properties": {
+                        "access": "Allow",
+                        "direction": "Inbound",
+                        "priority": 100,
+                        "protocol": "Tcp",
+                        "sourcePortRange": "*",
+                        "sourceAddressPrefix": "*",
+                        "destinationPortRange": "22",
+                        "destinationAddressPrefix": "*"
+                    }
+                    },
+                    {
+                    "name": "HTTP",
+                    "properties": {
+                        "access": "Allow",
+                        "direction": "Inbound",
+                        "priority": 101,
+                        "protocol": "Tcp",
+                        "sourcePortRange": "*",
+                        "sourceAddressPrefix": "*",
+                        "destinationPortRange": "80",
+                        "destinationAddressPrefix": "*"
+                    }
+                }
+             
+
+            ]
+        }
+
+
+    },
+    //Network Interface Card
+    {
+        "name": "DemoNIC",
+        "type": "Microsoft.Network/networkInterfaces",
+        "apiVersion": "2023-04-01",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+            "[resourceId('Microsoft.Network/publicIPAddresses','DemoPublicIP')]",
+            "[resourceId('Microsoft.Network/virtualnetworks','DemoVirtualNetwork')]",
+            "[resourceId('Microsoft.Network/networkSecurityGroups','DemoNSG')]"
+                ],
+                "properties": {
+                    "ipConfigurations": [
+                        {
+                            "name": "DemoIPConfig",
+                            "properties": {
+                                "privateIPAllocationMethod":
+"Dynamic",
+                                "publicIPAddress": {
+                                        "id":"[resourceId('Microsoft.Network/publicIPAddresses','DemoPublicIP')]"
+
+
+                                },
+                                "subnet": {
+                                    "id":
+"[resourceId('Microsoft.Network/virtualNetworks/subnets','DemoVirtualNetwork','DemoSubnet')]"  
+
+                                }
+
+                            
+                            }
+
+                        }
+                      
+                    ],
+                    "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups','DemoNSG')]"
+                    }
+                }
+                    
+            
+
+        
+        },
+        //Virtual Machine
+        {
+            "name": "DemoVM",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2021-04-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', 'DemoNIC')]"
+
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_B1s"
+                },
+                "osProfile": {
+                    "computerName": "DemoVM",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": true,
+                        "ssh": {
+                            "publicKeys": [
+                                {
+                                    "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                                    "keyData": "[parameters('sshKeyData')]"
+                                }
+                            ]
+                        }
+                    }
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "0001-com-ubuntu-server-jammy",
+                        "sku": "22_04-lts-gen2",
+                        "version": "latest"
+
+                    },
+                    "osDisk": {
+                        "name": "DemoVM-OSDisk",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces','DemoNIC')]"
+                        }
+                    ]
+                }
+            }
+
+        },
+           // Custom Script Extension for Nginx Installation
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "DemoVM/InstallNginx",
+            "apiVersion": "2023-03-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', 'DemoVM')]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.1",
+                "settings": {
+                    "fileUris": [],
+                    "commandToExecute": "sudo apt-get update && sudo apt-get install -y nginx"
+                }
+            }
+        }
+
+
+
+    
+
+        
+ ],
+    "outputs": {}
+}

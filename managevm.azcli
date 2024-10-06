@@ -1,0 +1,11 @@
+
+# Turn off a vm directly 
+az vm stop --resource-group demo10 --name DockerTestVM
+
+# Trun on a vm directly
+
+# Delete an entire resouce group 
+az group delete --name DemoDockerRG01 -y 
+
+# Get a list of your current resources groups 
+az group list --output table 

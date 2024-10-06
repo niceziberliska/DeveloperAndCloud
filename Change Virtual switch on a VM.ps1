@@ -1,0 +1,1 @@
+﻿Get-VM "maxtechpc2" | Get-VMNetworkAdapter | Connect-VMNetworkAdapter -SwitchName "WAN"
