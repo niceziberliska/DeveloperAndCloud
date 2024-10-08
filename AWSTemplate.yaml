@@ -1,0 +1,39 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+#Description:
+  #String
+
+#Metadata:
+  #template metadata
+
+#Parameters:
+  #set of parameters
+
+#Rules:
+  #set of rules
+
+#Mappings:
+  #set of mappings
+
+#Conditions:
+  #set of conditions
+
+#Transform:
+  #set of transforms
+
+Resources:
+  Type: AWS::EC2::SecurityGroup
+  Properties:
+   GroupDescription: String
+   GroupName: String
+   SecurityGroupEgress: 
+     - Egress
+   SecurityGroupIngress: 
+     - Ingress
+   Tags: 
+     - Tag
+   VpcId: String
+
+
+#Outputs:
+  #set of outputs
