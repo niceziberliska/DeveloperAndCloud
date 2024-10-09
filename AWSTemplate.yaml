@@ -6,8 +6,11 @@ AWSTemplateFormatVersion: "2010-09-09"
 #Metadata:
   #template metadata
 
-#Parameters:
-  #set of parameters
+Parameters:
+  SubnetIdParameter:
+    Type: 'AWS::EC2::Subnet::Id'
+    Description: 'The Subnet ID for the Auto Scaling Group'
+  
 
 #Rules:
   #set of rules
@@ -22,17 +25,111 @@ AWSTemplateFormatVersion: "2010-09-09"
   #set of transforms
 
 Resources:
-  Type: AWS::EC2::SecurityGroup
-  Properties:
-   GroupDescription: String
-   GroupName: String
-   SecurityGroupEgress: 
-     - Egress
-   SecurityGroupIngress: 
-     - Ingress
-   Tags: 
-     - Tag
-   VpcId: String
+  TestAndDemoSecGrp20241009:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+     GroupDescription: AllowHTTPAndSSHTraffic
+     GroupName: TestAndDemoSecGrp20241009
+     SecurityGroupEgress: 
+       - IpProtocol: -1 
+         CidrIp: 0.0.0.0/0
+     SecurityGroupIngress:
+       - IpProtocol: tcp
+         FromPort: 22
+         ToPort: 22
+         CidrIp: 0.0.0.0/0
+       - IpProtocol: tcp
+         FromPort: 80
+         ToPort: 80
+         CidrIp: 0.0.0.0/0
+       - IpProtocol: tcp
+         FromPort: 443  
+         ToPort: 443
+         CidrIp: 0.0.0.0/0
+     #Tags: 
+     #- Tag
+     #VpcId: String
+  TestAndDemoEC201:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+     InstanceType: 't2.micro'
+     ImageId: ami-054a53dca63de757b
+     SecurityGroupIds:
+      -!Ref: TestAndDemoSecGrp20241009
+  
+  TestAndDemoLaunchTemplate:
+      Type: 'AWS::EC2::LaunchTemplate'
+      Properties:
+       LaunchTemplateData: 
+        ImageId: 'ami-054a53dca63de757b'
+        InstanceInitiatedShutdownBehavior: 'stop'
+        InstanceType: 't2.micro'
+        KeyName: 'DemoAndTestEC2VM01key'
+        MaintenanceOptions: 
+         AutoRecovery: 'default' 
+        SecurityGroupIds: 
+          -!Ref: TestAndDemoSecGrp20241009
+        UserData: !Base64 |
+          #!/bin/bash
+          dnf update -y
+          dnf install nginx -y
+          systemctl start nginx
+          systemctl enable nginx
+    
+  TestAndDemoAutoScalingGroup:
+   Type: 'AWS::AutoScaling::AutoScalingGroup'
+   Properties:
+    LaunchTemplate: 
+     LaunchTemplateid: !Ref TestAndDemoLaunchTemplate
+     Version: !GetAtt TestAndDemoLaunchTemplate.LatestVersionNumber
+    MinSize: '1' 
+    MaxSize: '3' 
+    DesiredCapacity: '1'
+    VPCZoneIdentifier:
+      - !Ref SubnetIdParameter
+  TestAndDemoALBSecGrp:
+   Type: AWS::EC2::SecurityGroup
+   Properties:
+    GroupName: TestAndDemoALBSecGrp
+    GroupDescription: AllowHTTPAndHTTPSTraffic
+    SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+    
+  TargetGroup:
+    Type: AWS::ELB::TargetGroup
+    Properties:
+      Name: TestAndDemoTargetGroup
+      Protocol: HTTP 
+      Port: 80
+      TargetType: ip
+      HealthCheckPath: /
+
+  ApplicationLoadBalancer:
+    Type: AWS::ELB::ApplicationLoadBalancer
+    Properties:
+      Scheame: internet-facing
+      LoadBalancerName: TestAndDemoALB
+      Subnets:
+        - !Ref SubnetIdParameter
+      SecurityGroups: 
+        - !Ref TestAndDemoALBSecGrp
+      TargetGroups:
+        - TargetGroupArn: !Ref TargetGroup 
+         
+
+      
+#LaunchTemplateName: String
+#VersionDescription: String
+
+    
+ 
 
 
 #Outputs:
