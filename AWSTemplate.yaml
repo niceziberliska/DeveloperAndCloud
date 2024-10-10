@@ -1,15 +1,15 @@
 ---
 AWSTemplateFormatVersion: "2010-09-09"
-#Description:
+Description: "CloudFormation Template for Auto Scaling Group with ALB and VPC resources"
   #String
 
 #Metadata:
   #template metadata
 
-Parameters:
-  SubnetIdParameter:
-    Type: 'AWS::EC2::Subnet::Id'
-    Description: 'The Subnet ID for the Auto Scaling Group'
+#Parameters:
+  #SubnetIdParameter:
+    #Type: 'AWS::EC2::Subnet::Id'
+    #Description: 'The Subnet ID for the Auto Scaling Group'
   
 
 #Rules:
@@ -28,47 +28,47 @@ Resources:
   TestAndDemoSecGrp20241009:
     Type: AWS::EC2::SecurityGroup
     Properties:
-     GroupDescription: AllowHTTPAndSSHTraffic
-     GroupName: TestAndDemoSecGrp20241009
-     SecurityGroupEgress: 
-       - IpProtocol: -1 
-         CidrIp: 0.0.0.0/0
-     SecurityGroupIngress:
-       - IpProtocol: tcp
-         FromPort: 22
-         ToPort: 22
-         CidrIp: 0.0.0.0/0
-       - IpProtocol: tcp
-         FromPort: 80
-         ToPort: 80
-         CidrIp: 0.0.0.0/0
-       - IpProtocol: tcp
-         FromPort: 443  
-         ToPort: 443
-         CidrIp: 0.0.0.0/0
+      GroupDescription: AllowHTTPAndSSHTraffic
+      GroupName: TestAndDemoSecGrp20241009
+      SecurityGroupEgress: 
+        - IpProtocol: -1 
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443  
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
      #Tags: 
      #- Tag
      #VpcId: String
   TestAndDemoEC201:
     Type: 'AWS::EC2::Instance'
     Properties:
-     InstanceType: 't2.micro'
-     ImageId: ami-054a53dca63de757b
-     SecurityGroupIds:
-      -!Ref: TestAndDemoSecGrp20241009
+      InstanceType: 't2.micro'
+      ImageId: ami-054a53dca63de757b
+      SecurityGroupIds:
+        - !Ref TestAndDemoSecGrp20241009
   
   TestAndDemoLaunchTemplate:
-      Type: 'AWS::EC2::LaunchTemplate'
-      Properties:
-       LaunchTemplateData: 
+    Type: 'AWS::EC2::LaunchTemplate'
+    Properties:
+      LaunchTemplateData: 
         ImageId: 'ami-054a53dca63de757b'
         InstanceInitiatedShutdownBehavior: 'stop'
         InstanceType: 't2.micro'
         KeyName: 'DemoAndTestEC2VM01key'
         MaintenanceOptions: 
-         AutoRecovery: 'default' 
+          AutoRecovery: 'default' 
         SecurityGroupIds: 
-          -!Ref: TestAndDemoSecGrp20241009
+          - !Ref TestAndDemoSecGrp20241009
         UserData: !Base64 |
           #!/bin/bash
           dnf update -y
@@ -77,52 +77,139 @@ Resources:
           systemctl enable nginx
     
   TestAndDemoAutoScalingGroup:
-   Type: 'AWS::AutoScaling::AutoScalingGroup'
-   Properties:
-    LaunchTemplate: 
-     LaunchTemplateid: !Ref TestAndDemoLaunchTemplate
-     Version: !GetAtt TestAndDemoLaunchTemplate.LatestVersionNumber
-    MinSize: '1' 
-    MaxSize: '3' 
-    DesiredCapacity: '1'
-    VPCZoneIdentifier:
-      - !Ref SubnetIdParameter
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      LaunchTemplate: 
+        LaunchTemplateId: !Ref TestAndDemoLaunchTemplate
+        Version: !GetAtt TestAndDemoLaunchTemplate.LatestVersionNumber
+      MinSize: '1' 
+      MaxSize: '3' 
+      DesiredCapacity: '1'
+      VPCZoneIdentifier:
+        - !Ref SubnetPublic1
+        - !Ref SubnetPublic2
+
   TestAndDemoALBSecGrp:
-   Type: AWS::EC2::SecurityGroup
-   Properties:
-    GroupName: TestAndDemoALBSecGrp
-    GroupDescription: AllowHTTPAndHTTPSTraffic
-    SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 80
-        ToPort: 80
-        CidrIp: 0.0.0.0/0
-      - IpProtocol: tcp
-        FromPort: 443
-        ToPort: 443
-        CidrIp: 0.0.0.0/0
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: TestAndDemoALBSecGrp
+      GroupDescription: AllowHTTPAndHTTPSTraffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
     
   TargetGroup:
-    Type: AWS::ELB::TargetGroup
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: TestAndDemoTargetGroup
       Protocol: HTTP 
       Port: 80
-      TargetType: ip
+      VpcId: !Ref Vpc
+      TargetType: instance 
       HealthCheckPath: /
 
   ApplicationLoadBalancer:
-    Type: AWS::ELB::ApplicationLoadBalancer
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Scheame: internet-facing
+      Scheme: internet-facing
       LoadBalancerName: TestAndDemoALB
       Subnets:
-        - !Ref SubnetIdParameter
+        - !Ref SubnetPublic1
+        - !Ref SubnetPublic2
       SecurityGroups: 
         - !Ref TestAndDemoALBSecGrp
-      TargetGroups:
-        - TargetGroupArn: !Ref TargetGroup 
-         
+  
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer 
+      Port: 80
+      Protocol: HTTP
+
+  ALBListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+
+  Vpc: 
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  SubnetPublic1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: 
+        Fn::Select:
+          - 0 
+          - Fn::GetAZs: "eu-west-1"
+      VpcId: !Ref Vpc
+
+  SubnetPublic2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.0.128/25
+      AvailabilityZone: 
+        Fn::Select:
+          - 1 
+          - Fn::GetAZs: "eu-west-1"
+      VpcId: !Ref Vpc
+
+  RouteTablePublic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+
+  RoutePublic:
+    Type: AWS::EC2::Route 
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0 
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTablePublic
+
+  SubnetPublicRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetPublic1
+      RouteTableId: !Ref RouteTablePublic 
+
+  SubnetPublicRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetPublic2
+      RouteTableId: !Ref RouteTablePublic 
+
+  
+
+
+   
+
+
+
 
       
 #LaunchTemplateName: String
