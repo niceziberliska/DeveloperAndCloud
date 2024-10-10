@@ -1,7 +1,6 @@
 ---
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "CloudFormation Template for Auto Scaling Group with ALB and VPC resources"
-  #String
 
 #Metadata:
   #template metadata
@@ -220,4 +219,4 @@ Resources:
 
 
 #Outputs:
-  #set of outputs
+  #set of outputs2
