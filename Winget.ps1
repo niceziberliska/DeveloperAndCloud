@@ -25,5 +25,4 @@ winget install --id Oracle.VirtualBox -e --source winget
 winget search --name "docker" | winget install --name "Docker Desktop" 
 
 
-winget search --name "armoury", "asus" |  winget install --id Asus.ArmouryCrate                      
-Found ArmouryCrate
+winget search --name "armoury", "asus" |  winget install --id Asus.ArmouryCrate                     
