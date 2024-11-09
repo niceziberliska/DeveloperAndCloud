@@ -1,9 +1,13 @@
 ﻿
-$input = Read-Host "Enter 1 for uppdating all software compatibe with winget"
+$input = Read-Host "Enter 1 for uppdating all software compatibe with winget, and enter 2 to let your system give you an hello"
 
 switch ($input) {
     "1" { 
+        ###Check all software for updates, that are compatible with winget
         winget upgrade 
+        }
+    "2" { 
+        echo "hello"
         }
     Default {}
 }
@@ -17,4 +21,9 @@ winget install --name "MySQL Workbench 8.0 CE"
 ###Get And install Oracle VirtualBox
 winget install --id Oracle.VirtualBox -e --source winget 
 
-#Check all software for update compatible with winget
+###Installs docker desktop on your computer
+winget search --name "docker" | winget install --name "Docker Desktop" 
+
+
+winget search --name "armoury", "asus" |  winget install --id Asus.ArmouryCrate                      
+Found ArmouryCrate
